@@ -8,12 +8,12 @@
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
     <style>
-        /* 기본 배경 및 중앙 정렬을 위한 Flex 레이아웃 */
+        /* 글로벌 스타일 & 네온 테마 배경 */
         body {
-            font-family: 'Malgun Gothic', sans-serif;
+            font-family: 'Segoe UI', Roboto, 'Malgun Gothic', sans-serif;
             margin: 0;
             padding: 20px;
-            background-color: #0f172a;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #090514 100%);
             color: #f8fafc;
             display: flex;
             flex-direction: column;
@@ -21,51 +21,72 @@
             justify-content: center;
             min-height: 100vh;
             box-sizing: border-box;
+            overflow-x: hidden;
         }
 
-        /* 메인 타이틀 스타일 */
+        /* 메인 타이틀: 그라데이션 및 텍스트 글로우 효과 */
         h1 {
-            font-size: 1.5rem;
-            margin-bottom: 5px;
-            color: #38bdf8;
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 2px;
+            background: linear-gradient(135deg, #38bdf8 0%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
             text-align: center;
+            letter-spacing: -0.5px;
         }
 
         p {
-            font-size: 0.9rem;
-            color: #94a3b8;
+            font-size: 0.95rem;
+            color: #a78bfa;
             margin-top: 0;
-            margin-bottom: 20px;
+            margin-bottom: 25px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-weight: 500;
+            opacity: 0.8;
         }
 
-        /* 상태 창 스타일 */
+        /* 웅장한 네온 로딩 애니메이션이 포함된 상태 창 */
         #status {
-            font-weight: bold;
-            background: #1e293b;
-            padding: 8px 20px;
+            font-weight: 600;
+            background: rgba(30, 41, 59, 0.7);
+            padding: 10px 24px;
             border-radius: 50px;
-            font-size: 13px;
-            border: 1px solid #334155;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+            border: 1px solid rgba(167, 139, 250, 0.3);
+            margin-bottom: 25px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 0 20px rgba(192, 132, 252, 0.15), inset 0 0 10px rgba(255,255,255,0.05);
+            transition: all 0.4s ease;
+            animation: pulseGlow 2s infinite ease-in-out;
         }
 
-        /* ⭐️ 모바일 반응형 핵심: 영상이 들어갈 가운데 카드 박스 */
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(192, 132, 252, 0.15); }
+            50% { transform: scale(1.02); box-shadow: 0 0 30px rgba(56, 189, 248, 0.4); }
+        }
+
+        /* 디바이스 프레임: 공학적이고 미래지향적인 캔버스 컨테이너 */
         #canvas-container {
             position: relative;
             width: 100%;
-            max-width: 500px; /* PC나 패드에서 너무 커지지 않도록 제한 */
-            aspect-ratio: 4 / 3; /* 카메라 해상도 비율 유지 */
+            max-width: 540px; 
+            aspect-ratio: 4 / 3; 
             background: #000;
-            border-radius: 16px;
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
-            border: 2px solid #334155;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 
+                        0 0 40px rgba(56, 189, 248, 0.25);
+            border: 2px solid rgba(56, 189, 248, 0.4);
+            transition: border-color 0.5s ease;
         }
 
-        video { display: none; } /* 비디오 원본은 숨김 */
+        /* 비디오 원본은 숨김 */
+        video { display: none; } 
 
-        /* 화면 크기에 맞춰 유연하게 변하는 캔버스 */
+        /* 캔버스 스타일 */
         canvas {
             position: absolute;
             top: 0;
@@ -74,12 +95,38 @@
             height: 100%;
             object-fit: cover;
         }
+
+        /* 장식용 SF 스타일 코너 데코레이션 (감성 추가) */
+        #canvas-container::before {
+            content: '';
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 12px;
+            height: 12px;
+            border-top: 2px solid #38bdf8;
+            border-left: 2px solid #38bdf8;
+            z-index: 10;
+            pointer-events: none;
+        }
+        #canvas-container::after {
+            content: '';
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 12px;
+            height: 12px;
+            border-bottom: 2px solid #38bdf8;
+            border-right: 2px solid #38bdf8;
+            z-index: 10;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
-    <h1>📸 AI 웹캠 객체 탐지</h1>
-    <p>내 손안의 똑똑한 딥러닝 카메라</p>
+    <h1>📸 AI WEBCAM VISION</h1>
+    <p>Real-time Object Detection</p>
 
     <div id="status">🤖 모델 로딩 중... (약 14MB)</div>
 
@@ -113,7 +160,8 @@
                 session = await ort.InferenceSession.create('yolov8n.onnx', { executionProviders: ['webgl', 'wasm'] });
 
                 statusDiv.innerText = "🎯 탐지 가동 중! 사물을 비춰보세요.";
-                statusDiv.style.color = "#38bdf8";
+                statusDiv.style.color = "#a78bfa";
+                statusDiv.style.borderColor = "rgba(56, 189, 248, 0.6)";
 
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
@@ -122,6 +170,7 @@
             } catch (err) {
                 statusDiv.innerText = "❌ 오류: 카메라 권한을 허용해 주세요.";
                 statusDiv.style.color = "#ef4444";
+                statusDiv.style.borderColor = "#ef4444";
                 console.error(err);
             }
         }
@@ -176,6 +225,7 @@
             const numAttributes = dims[1];
             const numBoxes = dims[2];
 
+            // 🎨 탐지 박스 컬러 테마 수정 (네온 시안색 테두리와 둥근 텍스트 배경 처리 느낌 구현)
             for (let i = 0; i < numBoxes; i += 12) {
                 let maxScore = 0;
                 let classId = -1;
@@ -197,18 +247,26 @@
                     const x = cx - w / 2;
                     const y = cy - h / 2;
 
-                    ctx.strokeStyle = "#22c55e";
-                    ctx.lineWidth = 4;
+                    // 화려한 사이언(Cyan) 네온 박스 선 적용
+                    ctx.strokeStyle = "#06b6d4";
+                    ctx.shadowColor = "#06b6d4";
+                    ctx.shadowBlur = 10; // 박스 선에 빛나는 효과 부여
+                    ctx.lineWidth = 3;
                     ctx.strokeRect(x, y, w, h);
 
-                    ctx.fillStyle = "#22c55e";
-                    const text = `${labels[classId]} ${Math.round(maxScore * 100)}%`;
-                    ctx.font = "bold 14px sans-serif";
-                    const textWidth = ctx.measureText(text).width;
-                    ctx.fillRect(x - 2, y - 22, textWidth + 10, 20);
+                    // 텍스트를 그릴 때는 그림자 효과 초기화 (글자 가독성 유지)
+                    ctx.shadowBlur = 0; 
 
-                    ctx.fillStyle = "#ffffff";
-                    ctx.fillText(text, x + 3, y - 7);
+                    // 텍스트 배경
+                    ctx.fillStyle = "#06b6d4";
+                    const text = `${labels[classId]} ${Math.round(maxScore * 100)}%`;
+                    ctx.font = "bold 13px 'Segoe UI', sans-serif";
+                    const textWidth = ctx.measureText(text).width;
+                    ctx.fillRect(x - 1, y - 24, textWidth + 12, 22);
+
+                    // 텍스트 글자
+                    ctx.fillStyle = "#000000";
+                    ctx.fillText(text, x + 5, y - 8);
                 }
             }
         }
