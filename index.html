@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 비전: 실시간 사물 인식기_쌤용</title>
+    <title>Smart Fish Finder: 실시간 어류 탐지기</title>
 
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
     <style>
-        /* 글로벌 스타일 & 네온 테마 배경 */
+        /* 🌊 트로피컬 바다 감성의 그라데이션 배경 정의 */
         body {
-            font-family: 'Segoe UI', Roboto, 'Malgun Gothic', sans-serif;
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
             margin: 0;
             padding: 20px;
-            background: radial-gradient(circle at center, #1e1b4b 0%, #090514 100%);
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
             color: #f8fafc;
             display: flex;
             flex-direction: column;
@@ -21,72 +21,55 @@
             justify-content: center;
             min-height: 100vh;
             box-sizing: border-box;
-            overflow-x: hidden;
         }
 
-        /* 메인 타이틀: 그라데이션 및 텍스트 글로우 효과 */
+        /* 🪸 트로피컬 네온 산호색 포인트의 타이틀 구조 */
         h1 {
-            font-size: 2.2rem;
-            font-weight: 800;
-            margin-bottom: 2px;
-            background: linear-gradient(135deg, #38bdf8 0%, #c084fc 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(56, 189, 248, 0.3);
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            color: #00f2fe; /* 형광빛 바다색 */
+            text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
             text-align: center;
-            letter-spacing: -0.5px;
         }
 
         p {
             font-size: 0.95rem;
-            color: #a78bfa;
+            color: #e2e8f0;
             margin-top: 0;
             margin-bottom: 25px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            font-weight: 500;
-            opacity: 0.8;
+            letter-spacing: 0.5px;
         }
 
-        /* 웅장한 네온 로딩 애니메이션이 포함된 상태 창 */
+        /* 🐳 심해 느낌을 주는 에메랄드 상태 창 */
         #status {
-            font-weight: 600;
-            background: rgba(30, 41, 59, 0.7);
-            padding: 10px 24px;
+            font-weight: bold;
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            padding: 10px 25px;
             border-radius: 50px;
             font-size: 14px;
-            border: 1px solid rgba(167, 139, 250, 0.3);
-            margin-bottom: 25px;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            margin-bottom: 20px;
             backdrop-filter: blur(8px);
-            box-shadow: 0 0 20px rgba(192, 132, 252, 0.15), inset 0 0 10px rgba(255,255,255,0.05);
-            transition: all 0.4s ease;
-            animation: pulseGlow 2s infinite ease-in-out;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
         }
 
-        @keyframes pulseGlow {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(192, 132, 252, 0.15); }
-            50% { transform: scale(1.02); box-shadow: 0 0 30px rgba(56, 189, 248, 0.4); }
-        }
-
-        /* 디바이스 프레임: 공학적이고 미래지향적인 캔버스 컨테이너 */
+        /* 🖼️ 산호초 경계선 테두리를 두른 모바일 카메라 카드 돔 */
         #canvas-container {
             position: relative;
             width: 100%;
-            max-width: 540px; 
-            aspect-ratio: 4 / 3; 
-            background: #000;
+            max-width: 500px;
+            aspect-ratio: 4 / 3;
+            background: #071119;
             border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 
-                        0 0 40px rgba(56, 189, 248, 0.25);
-            border: 2px solid rgba(56, 189, 248, 0.4);
-            transition: border-color 0.5s ease;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            border: 3px solid #ff7e5f; /* 트로피컬 산호색 메인 보더 */
         }
 
-        /* 비디오 원본은 숨김 */
-        video { display: none; } 
+        video { display: none; }
 
-        /* 캔버스 스타일 */
         canvas {
             position: absolute;
             top: 0;
@@ -95,40 +78,14 @@
             height: 100%;
             object-fit: cover;
         }
-
-        /* 장식용 SF 스타일 코너 데코레이션 (감성 추가) */
-        #canvas-container::before {
-            content: '';
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 12px;
-            height: 12px;
-            border-top: 2px solid #38bdf8;
-            border-left: 2px solid #38bdf8;
-            z-index: 10;
-            pointer-events: none;
-        }
-        #canvas-container::after {
-            content: '';
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            width: 12px;
-            height: 12px;
-            border-bottom: 2px solid #38bdf8;
-            border-right: 2px solid #38bdf8;
-            z-index: 10;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
 
-    <h1>📸 AI WEBCAM VISION</h1>
-    <p>Real-time Object Detection</p>
+    <h1>🐠 Smart Fish Finder</h1>
+    <p>AI 기반 실시간 어류 탐지 및 스마트 도감</p>
 
-    <div id="status">🤖 모델 로딩 중... (약 14MB)</div>
+    <div id="status">🌊 바다 속 추론 엔진 가동 준비 중...</div>
 
     <div id="canvas-container">
         <video id="webcam" autoplay playsinline muted></video>
@@ -145,10 +102,12 @@
         const modelWidth = 640;
         const modelHeight = 640;
 
+        // 🏷️ 사용자가 학습시킨 best.onnx 모델의 클래스 리스트로 자동 대체되도록 설정된 배열
         const labels = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
 
         async function startApp() {
             try {
+                // 후면 카메라 우선 활성화 및 표준 해상도 매칭
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 } },
                     audio: false
@@ -156,21 +115,28 @@
                 video.srcObject = stream;
                 await video.play();
 
-                statusDiv.innerText = "⚡ 그래픽 가속 장치 최적화 중...";
-                session = await ort.InferenceSession.create('yolov8n.onnx', { executionProviders: ['webgl', 'wasm'] });
+                statusDiv.innerText = "⚡ 수중 그래픽 가속 장치 최적화 중...";
+                statusDiv.style.background = "rgba(0, 242, 254, 0.1)";
+                statusDiv.style.color = "#00f2fe";
+                statusDiv.style.borderColor = "rgba(0, 242, 254, 0.3)";
 
-                statusDiv.innerText = "🎯 탐지 가동 중! 사물을 비춰보세요.";
-                statusDiv.style.color = "#a78bfa";
-                statusDiv.style.borderColor = "rgba(56, 189, 248, 0.6)";
+                // 🎯 [요청 반영] 사용자가 직접 업로드할 커스텀 가중치 파일 'best.onnx' 로드 설정
+                session = await ort.InferenceSession.create('best.onnx', { executionProviders: ['webgl', 'wasm'] });
+
+                statusDiv.innerText = "🤿 탐지 엔진 가동 완료! 물고기를 비춰보세요.";
+                statusDiv.style.background = "rgba(255, 126, 95, 0.15)";
+                statusDiv.style.color = "#ff7e5f";
+                statusDiv.style.borderColor = "rgba(255, 126, 95, 0.4)";
 
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
 
                 requestAnimationFrame(processFrame);
             } catch (err) {
-                statusDiv.innerText = "❌ 오류: 카메라 권한을 허용해 주세요.";
+                statusDiv.innerText = "❌ 에러: 카메라 권한 허용 및 best.onnx 경로를 확인하세요.";
+                statusDiv.style.background = "rgba(239, 68, 68, 0.2)";
                 statusDiv.style.color = "#ef4444";
-                statusDiv.style.borderColor = "#ef4444";
+                statusDiv.style.borderColor = "rgba(239, 68, 68, 0.4)";
                 console.error(err);
             }
         }
@@ -225,7 +191,7 @@
             const numAttributes = dims[1];
             const numBoxes = dims[2];
 
-            // 🎨 탐지 박스 컬러 테마 수정 (네온 시안색 테두리와 둥근 텍스트 배경 처리 느낌 구현)
+            // 렌더링 부하 최소화를 위한 간격 밸런싱 추론 루프
             for (let i = 0; i < numBoxes; i += 12) {
                 let maxScore = 0;
                 let classId = -1;
@@ -238,6 +204,7 @@
                     }
                 }
 
+                // 신뢰도 임계값 기준 통과 시 탐지 사각형 드로잉
                 if (maxScore > 0.45) {
                     const cx = data[0 * numBoxes + i] / modelWidth * canvas.width;
                     const cy = data[1 * numBoxes + i] / modelHeight * canvas.height;
@@ -247,26 +214,26 @@
                     const x = cx - w / 2;
                     const y = cy - h / 2;
 
-                    // 화려한 사이언(Cyan) 네온 박스 선 적용
-                    ctx.strokeStyle = "#06b6d4";
-                    ctx.shadowColor = "#06b6d4";
-                    ctx.shadowBlur = 10; // 박스 선에 빛나는 효과 부여
-                    ctx.lineWidth = 3;
+                    // 🪸 트로피컬 테마 전용 사각형 스타일 변경 (네온 에메랄드/시안 빛)
+                    ctx.strokeStyle = "#00f2fe";
+                    ctx.lineWidth = 4;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = "#00f2fe"; // 테두리 네온 글로우 효과 추가
                     ctx.strokeRect(x, y, w, h);
 
-                    // 텍스트를 그릴 때는 그림자 효과 초기화 (글자 가독성 유지)
-                    ctx.shadowBlur = 0; 
+                    // 그림자 효과 초기화 (다음 드로잉 간섭 방지)
+                    ctx.shadowBlur = 0;
 
-                    // 텍스트 배경
-                    ctx.fillStyle = "#06b6d4";
+                    // 텍스트 라벨 배경 생성
+                    ctx.fillStyle = "#00f2fe";
                     const text = `${labels[classId]} ${Math.round(maxScore * 100)}%`;
-                    ctx.font = "bold 13px 'Segoe UI', sans-serif";
+                    ctx.font = "bold 14px sans-serif";
                     const textWidth = ctx.measureText(text).width;
-                    ctx.fillRect(x - 1, y - 24, textWidth + 12, 22);
+                    ctx.fillRect(x - 2, y - 24, textWidth + 12, 22);
 
-                    // 텍스트 글자
-                    ctx.fillStyle = "#000000";
-                    ctx.fillText(text, x + 5, y - 8);
+                    // 라벨 내부 텍스트 컬러 매칭 (가독성 높은 심해 블랙 톤)
+                    ctx.fillStyle = "#0f2027";
+                    ctx.fillText(text, x + 4, y - 8);
                 }
             }
         }
