@@ -1,57 +1,226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Wheelchair Finder</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+    <style>
+        /* 모바일 전체 화면 및 터치 방지 스타일 */
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #0f2027;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            overflow: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        header {
+            width: 100%;
+            padding: 15px 0 5px 0;
+            text-align: center;
+            background: linear-gradient(to bottom, rgba(15,32,39,1), rgba(15,32,39,0.8));
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            margin: 0;
+            color: #00f2fe; 
+            text-shadow: 0 0 8px rgba(0, 242, 254, 0.6);
+        }
+
+        p {
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            margin: 3px 0 0 0;
+            letter-spacing: 0.5px;
+        }
+
+        /* 상태 표시창: 모바일 상단 플로팅 스타일 */
+        #status {
+            font-weight: bold;
+            background: rgba(16, 185, 129, 0.25);
+            color: #10b981;
+            padding: 6px 16px;
+            border-radius: 30px;
+            font-size: 12px;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            margin: 8px auto;
+            backdrop-filter: blur(8px);
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        /* 📱 모바일 카메라 풀스크린/카드 컨테이너 설정 */
+        #canvas-container {
+            position: relative;
+            width: 92%;
+            max-width: 450px;
+            aspect-ratio: 3 / 4; /* 모바일 세로 화면에 최적화된 3:4 비율 */
+            background: #071119;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            border: 3px solid #ff7e5f; 
+        }
+
+        video { display: none; }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* 카메라 왜곡 방지 및 채우기 */
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>👩‍🦼 Smart Finder</h1>
+        <p>실시간 휠체어 & 사람 탐지 시스템</p>
+        <div id="status">⏳ 추론 엔진 로드 중...</div>
+    </header>
+
+    <div id="canvas-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="display_canvas"></canvas>
+    </div>
+
+<script>
 const video = document.getElementById('webcam');
 const canvas = document.getElementById('display_canvas');
 const ctx = canvas.getContext('2d');
 const statusDiv = document.getElementById('status');
 
 let session;
-// ⚠️ 중요: 모델 학습 크기(imgsz=416)와 일치시킵니다.
+// 🎯 Colab 학습 규격(imgsz=416)과 100% 일치화
 const modelWidth = 416;
 const modelHeight = 416;
 
-// 🏷️ Roboflow data.yaml에 정의된 클래스 순서와 완벽히 일치해야 합니다.
-// 0: person, 1: wheelchair
+// 🏷️ data.yaml 클래스 인덱스 순서 고정
 const labels = ['person', 'wheelchair']; 
 
 async function startApp() {
     try {
+        // 모바일 후면 카메라(environment) 가로세로 비율 최적화 요청
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 } },
+            video: { 
+                facingMode: { ideal: "environment" }, 
+                width: { ideal: 640 }, 
+                height: { ideal: 480 } 
+            },
             audio: false
         });
         video.srcObject = stream;
         await video.play();
 
-        statusDiv.innerText = "⚡ 이동형 탐지 엔진 최적화 중...";
-        
-        // Vercel 환경에서 ONNX 로드 (best.onnx 파일이 HTML과 같은 경로에 있어야 함)
+        statusDiv.innerText = "⚡ 인공지능 엔진 최적화 중...";
+        statusDiv.style.background = "rgba(0, 242, 254, 0.15)";
+        statusDiv.style.color = "#00f2fe";
+        statusDiv.style.borderColor = "rgba(0, 242, 254, 0.4)";
+
+        // Vercel 환경에서 상대 경로로 ONNX 모델 로드 (WASM 백엔드 지정)
         session = await ort.InferenceSession.create('./best.onnx', { executionProviders: ['wasm'] });
 
-        statusDiv.innerText = "👩‍🦼 휠체어 & 사람 탐지 시작!";
-        statusDiv.style.background = "rgba(255, 126, 95, 0.15)";
+        statusDiv.innerText = "📱 탐지 가동 중 (후면 카메라)";
+        statusDiv.style.background = "rgba(255, 126, 95, 0.2)";
         statusDiv.style.color = "#ff7e5f";
+        statusDiv.style.borderColor = "rgba(255, 126, 95, 0.5)";
 
+        // 메인 캔버스 크기를 모바일 카메라 실제 해상도로 동기화
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
 
         requestAnimationFrame(processFrame);
     } catch (err) {
-        statusDiv.innerText = "❌ 에러: 카메라 권한 및 best.onnx 파일 위치를 확인하세요.";
+        statusDiv.innerText = "❌ 에러: 카메라 권한 부족 또는 best.onnx 없음";
+        statusDiv.style.background = "rgba(239, 68, 68, 0.2)";
+        statusDiv.style.color = "#ef4444";
         console.error(err);
     }
 }
 
-// ... (중략: preprocess 함수는 변동 없음) ...
+async function processFrame() {
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        // 1. 캔버스에 실시간 모바일 카메라 화면 드로잉
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // 2. 이미지를 416x416 텐서 데이터로 전처리
+        const inputTensor = preprocess(video, modelWidth, modelHeight);
+
+        if (inputTensor) {
+            try {
+                // 3. ONNX 인프라 추론 실행
+                const outputs = await session.run({ images: inputTensor });
+                const output = outputs[Object.keys(outputs)[0]]; // 첫 번째 출력 레이어 추출
+                
+                // 4. 추출된 데이터를 바탕으로 화면에 바운딩 박스 렌더링
+                postprocess(output.data, output.dims);
+            } catch (e) {
+                console.error("추론 오류:", e);
+            }
+        }
+    }
+    // 프레임 연속 재생 루프 호출
+    requestAnimationFrame(processFrame);
+}
+
+function preprocess(img, width, height) {
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    
+    // 모바일 왜곡 최소화를 위해 416x416 정방형 강제 스트레칭 압축 리사이징
+    tempCtx.drawImage(img, 0, 0, width, height);
+
+    const imgData = tempCtx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+
+    const r = new Float32Array(width * height);
+    const g = new Float32Array(width * height);
+    const b = new Float32Array(width * height);
+
+    // RGB 채널 분리 및 0~1 정규화(Normalize) 처리
+    for (let i = 0; i < data.length / 4; i++) {
+        r[i] = data[i * 4] / 255.0;
+        g[i] = data[i * 4 + 1] / 255.0;
+        b[i] = data[i * 4 + 2] / 255.0;
+    }
+
+    const float32Data = new Float32Array(width * height * 3);
+    float32Data.set(r, 0);
+    float32Data.set(g, width * height);
+    float32Data.set(b, width * height * 2);
+
+    return new ort.Tensor('float32', float32Data, [1, 3, width, height]);
+}
 
 function postprocess(data, dims) {
-    const numAttributes = dims[1]; // 4 (좌표) + 2 (클래스 개수) = 6 차원 예측 배열
-    const numBoxes = dims[2];      // YOLOv8 416 크기 기준 추출된 총 바운딩 박스 개수
+    const numAttributes = dims[1]; // 6 (cx, cy, w, h, person_score, wheelchair_score)
+    const numBoxes = dims[2];      // 3549 (imgsz=416 규격 고정 박스 수)
 
-    // 모든 상자를 누락 없이 촘촘하게 검사 (i++)
+    let candidates = [];
+
+    // 1단계: 임계값 기준을 넘는 모든 탐지 후보군 수집
     for (let i = 0; i < numBoxes; i++) {
         let maxScore = 0;
         let classId = -1;
 
-        // 4번 인덱스부터 클래스 점수 비교 시작 (4: person, 5: wheelchair)
         for (let c = 4; c < numAttributes; c++) {
             const score = data[c * numBoxes + i];
             if (score > maxScore) {
@@ -60,7 +229,7 @@ function postprocess(data, dims) {
             }
         }
 
-        // 실시간 환경을 고려해 신뢰도 기준 점수를 0.40(40%)으로 설정
+        // 모바일 야외 인식을 감안해 스코어 기준을 0.40(40%)으로 최적 설정
         if (maxScore > 0.40) {
             const cx = data[0 * numBoxes + i] / modelWidth * canvas.width;
             const cy = data[1 * numBoxes + i] / modelHeight * canvas.height;
@@ -70,20 +239,65 @@ function postprocess(data, dims) {
             const x = cx - w / 2;
             const y = cy - h / 2;
 
-            // 네온 스타일 바운딩 박스 그리기
-            ctx.strokeStyle = classId === 1 ? "#ff3b30" : "#00f2fe"; // 휠체어는 빨간색 계열, 사람은 하늘색
-            ctx.lineWidth = 4;
-            ctx.strokeRect(x, y, w, h);
-
-            // 텍스트 라벨 배경 및 이름 출력
-            ctx.fillStyle = classId === 1 ? "#ff3b30" : "#00f2fe";
-            const text = `${labels[classId]} ${Math.round(maxScore * 100)}%`;
-            ctx.font = "bold 14px sans-serif";
-            const textWidth = ctx.measureText(text).width;
-            ctx.fillRect(x - 2, y - 24, textWidth + 12, 22);
-
-            ctx.fillStyle = "#0f2027";
-            ctx.fillText(text, x + 4, y - 8);
+            candidates.push({ x, y, w, h, score: maxScore, classId });
         }
     }
+
+    // 2단계: 모바일 화면 유연성을 위한 간이 NMS (IoU 중복 박스 제거)
+    candidates.sort((a, b) => b.score - a.score);
+    let selectedObjects = [];
+    
+    while (candidates.length > 0) {
+        let box = candidates.shift();
+        selectedObjects.push(box);
+        
+        // 겹치는 박스가 많으면 제거 (동일 타겟 중복 그리기 방지)
+        candidates = candidates.filter(item => {
+            if (item.classId !== box.classId) return true;
+            
+            // 단순 교집합 연산 영역 계산 (Intersection over Union 맛보기 기법)
+            const interX1 = Math.max(box.x, item.x);
+            const interY1 = Math.max(box.y, item.y);
+            const interX2 = Math.min(box.x + box.w, item.x + item.w);
+            const interY2 = Math.min(box.y + box.h, item.y + item.h);
+            
+            if (interX2 > interX1 && interY2 > interY1) {
+                const interArea = (interX2 - interX1) * (interY2 - interY1);
+                const boxArea = box.w * box.h;
+                const itemArea = item.w * item.h;
+                const iou = interArea / (boxArea + itemArea - interArea);
+                return iou < 0.5; // 50% 이상 겹치면 중복으로 판단하고 버림
+            }
+            return true;
+        });
+    }
+
+    // 3단계: 화면 최종 렌더링
+    selectedObjects.forEach(obj => {
+        // 휠체어(1)는 눈에 잘 띄는 다홍색(#ff4757), 사람(0)은 시안 블루(#00f2fe)
+        const themeColor = obj.classId === 1 ? "#ff4757" : "#00f2fe";
+
+        ctx.strokeStyle = themeColor;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+
+        // 상단 라벨 텍스트 처리
+        ctx.fillStyle = themeColor;
+        const labelName = labels[obj.classId];
+        const text = `${labelName} ${Math.round(obj.score * 100)}%`;
+        
+        ctx.font = "bold 12px sans-serif";
+        const textWidth = ctx.measureText(text).width;
+        
+        const labelY = obj.y - 20 < 0 ? 0 : obj.y - 20;
+        ctx.fillRect(obj.x - 1, labelY, textWidth + 10, 20);
+
+        ctx.fillStyle = "#0f2027";
+        ctx.fillText(text, obj.x + 4, labelY + 14);
+    });
 }
+
+window.onload = startApp;
+</script>
+</body>
+</html>
