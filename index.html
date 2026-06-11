@@ -1,246 +1,89 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Fish Finder: 실시간 어류 탐지기</title>
-
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-
-<style>
-/* 🌊 트로피컬 바다 감성의 그라데이션 배경 정의 */
-body {
-font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
-margin: 0;
-padding: 20px;
-background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-color: #f8fafc;
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-min-height: 100vh;
-box-sizing: border-box;
-}
-
-/* 🪸 트로피컬 네온 산호색 포인트의 타이틀 구조 */
-h1 {
-font-size: 1.8rem;
-margin-bottom: 5px;
-color: #00f2fe; /* 형광빛 바다색 */
-text-shadow: 0 0 10px rgba(0, 242, 254, 0.5);
-text-align: center;
-}
-
-p {
-font-size: 0.95rem;
-color: #e2e8f0;
-margin-top: 0;
-margin-bottom: 25px;
-letter-spacing: 0.5px;
-}
-
-/* 🐳 심해 느낌을 주는 에메랄드 상태 창 */
-#status {
-font-weight: bold;
-background: rgba(16, 185, 129, 0.2);
-color: #10b981;
-padding: 10px 25px;
-border-radius: 50px;
-font-size: 14px;
-border: 1px solid rgba(16, 185, 129, 0.4);
-margin-bottom: 20px;
-backdrop-filter: blur(8px);
-box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-transition: all 0.3s ease;
-}
-
-/* 🖼️ 산호초 경계선 테두리를 두른 모바일 카메라 카드 돔 */
-#canvas-container {
-position: relative;
-width: 100%;
-max-width: 500px;
-aspect-ratio: 4 / 3;
-background: #071119;
-border-radius: 24px;
-overflow: hidden;
-box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
-border: 3px solid #ff7e5f; /* 트로피컬 산호색 메인 보더 */
-}
-
-video { display: none; }
-
-canvas {
-position: absolute;
-top: 0;
-left: 0;
-width: 100%;
-height: 100%;
-object-fit: cover;
-}
-</style>
-</head>
-<body>
-
-<h1>🐠 Smart Fish Finder</h1>
-    <p>AI 기반 실시간 어류 탐지 및 스마트 도감</p>
-    <p>AI 기반 휠체어 탐지</p>
-
-<div id="status">🌊 바다 속 추론 엔진 가동 준비 중...</div>
-
-<div id="canvas-container">
-<video id="webcam" autoplay playsinline muted></video>
-<canvas id="display_canvas"></canvas>
-</div>
-
-<script>
 const video = document.getElementById('webcam');
 const canvas = document.getElementById('display_canvas');
 const ctx = canvas.getContext('2d');
 const statusDiv = document.getElementById('status');
 
 let session;
-const modelWidth = 640;
-const modelHeight = 640;
+// ⚠️ 중요: 모델 학습 크기(imgsz=416)와 일치시킵니다.
+const modelWidth = 416;
+const modelHeight = 416;
 
-// 🏷️ 사용자가 학습시킨 best.onnx 모델의 클래스 리스트로 자동 대체되도록 설정된 배열
-        const labels = ["person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"];
-        const labels = ['person', 'wheelchair'];
+// 🏷️ Roboflow data.yaml에 정의된 클래스 순서와 완벽히 일치해야 합니다.
+// 0: person, 1: wheelchair
+const labels = ['person', 'wheelchair']; 
 
 async function startApp() {
-try {
-// 후면 카메라 우선 활성화 및 표준 해상도 매칭
-const stream = await navigator.mediaDevices.getUserMedia({
-video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 } },
-audio: false
-});
-video.srcObject = stream;
-await video.play();
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" }, width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
 
-statusDiv.innerText = "⚡ 수중 그래픽 가속 장치 최적화 중...";
-statusDiv.style.background = "rgba(0, 242, 254, 0.1)";
-statusDiv.style.color = "#00f2fe";
-statusDiv.style.borderColor = "rgba(0, 242, 254, 0.3)";
+        statusDiv.innerText = "⚡ 이동형 탐지 엔진 최적화 중...";
+        
+        // Vercel 환경에서 ONNX 로드 (best.onnx 파일이 HTML과 같은 경로에 있어야 함)
+        session = await ort.InferenceSession.create('./best.onnx', { executionProviders: ['wasm'] });
 
-// 🎯 [요청 반영] 사용자가 직접 업로드할 커스텀 가중치 파일 'best.onnx' 로드 설정
-session = await ort.InferenceSession.create('best.onnx', { executionProviders: ['webgl', 'wasm'] });
+        statusDiv.innerText = "👩‍🦼 휠체어 & 사람 탐지 시작!";
+        statusDiv.style.background = "rgba(255, 126, 95, 0.15)";
+        statusDiv.style.color = "#ff7e5f";
 
-statusDiv.innerText = "🤿 탐지 엔진 가동 완료! 물고기를 비춰보세요.";
-statusDiv.style.background = "rgba(255, 126, 95, 0.15)";
-statusDiv.style.color = "#ff7e5f";
-statusDiv.style.borderColor = "rgba(255, 126, 95, 0.4)";
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
 
-canvas.width = video.videoWidth;
-canvas.height = video.videoHeight;
-
-requestAnimationFrame(processFrame);
-} catch (err) {
-statusDiv.innerText = "❌ 에러: 카메라 권한 허용 및 best.onnx 경로를 확인하세요.";
-statusDiv.style.background = "rgba(239, 68, 68, 0.2)";
-statusDiv.style.color = "#ef4444";
-statusDiv.style.borderColor = "rgba(239, 68, 68, 0.4)";
-console.error(err);
-}
+        requestAnimationFrame(processFrame);
+    } catch (err) {
+        statusDiv.innerText = "❌ 에러: 카메라 권한 및 best.onnx 파일 위치를 확인하세요.";
+        console.error(err);
+    }
 }
 
-async function processFrame() {
-if (video.readyState === video.HAVE_ENOUGH_DATA) {
-ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-const inputTensor = preprocess(video, modelWidth, modelHeight);
-
-if (inputTensor) {
-try {
-const outputs = await session.run({ images: inputTensor });
-const output = outputs[Object.keys(outputs)[0]];
-postprocess(output.data, output.dims);
-} catch (e) {
-console.error(e);
-}
-}
-}
-requestAnimationFrame(processFrame);
-}
-
-function preprocess(img, width, height) {
-const tempCanvas = document.createElement('canvas');
-tempCanvas.width = width;
-tempCanvas.height = height;
-const tempCtx = tempCanvas.getContext('2d');
-tempCtx.drawImage(img, 0, 0, width, height);
-
-const imgData = tempCtx.getImageData(0, 0, width, height);
-const data = imgData.data;
-
-const r = new Float32Array(width * height);
-const g = new Float32Array(width * height);
-const b = new Float32Array(width * height);
-
-for (let i = 0; i < data.length / 4; i++) {
-r[i] = data[i * 4] / 255.0;
-g[i] = data[i * 4 + 1] / 255.0;
-b[i] = data[i * 4 + 2] / 255.0;
-}
-
-const float32Data = new Float32Array(width * height * 3);
-float32Data.set(r, 0);
-float32Data.set(g, width * height);
-float32Data.set(b, width * height * 2);
-
-return new ort.Tensor('float32', float32Data, [1, 3, width, height]);
-}
+// ... (중략: preprocess 함수는 변동 없음) ...
 
 function postprocess(data, dims) {
-const numAttributes = dims[1];
-const numBoxes = dims[2];
+    const numAttributes = dims[1]; // 4 (좌표) + 2 (클래스 개수) = 6 차원 예측 배열
+    const numBoxes = dims[2];      // YOLOv8 416 크기 기준 추출된 총 바운딩 박스 개수
 
-// 렌더링 부하 최소화를 위한 간격 밸런싱 추론 루프
-for (let i = 0; i < numBoxes; i += 12) {
-let maxScore = 0;
-let classId = -1;
+    // 모든 상자를 누락 없이 촘촘하게 검사 (i++)
+    for (let i = 0; i < numBoxes; i++) {
+        let maxScore = 0;
+        let classId = -1;
 
-for (let c = 4; c < numAttributes; c++) {
-const score = data[c * numBoxes + i];
-if (score > maxScore) {
-maxScore = score;
-classId = c - 4;
+        // 4번 인덱스부터 클래스 점수 비교 시작 (4: person, 5: wheelchair)
+        for (let c = 4; c < numAttributes; c++) {
+            const score = data[c * numBoxes + i];
+            if (score > maxScore) {
+                maxScore = score;
+                classId = c - 4;
+            }
+        }
+
+        // 실시간 환경을 고려해 신뢰도 기준 점수를 0.40(40%)으로 설정
+        if (maxScore > 0.40) {
+            const cx = data[0 * numBoxes + i] / modelWidth * canvas.width;
+            const cy = data[1 * numBoxes + i] / modelHeight * canvas.height;
+            const w = data[2 * numBoxes + i] / modelWidth * canvas.width;
+            const h = data[3 * numBoxes + i] / modelHeight * canvas.height;
+
+            const x = cx - w / 2;
+            const y = cy - h / 2;
+
+            // 네온 스타일 바운딩 박스 그리기
+            ctx.strokeStyle = classId === 1 ? "#ff3b30" : "#00f2fe"; // 휠체어는 빨간색 계열, 사람은 하늘색
+            ctx.lineWidth = 4;
+            ctx.strokeRect(x, y, w, h);
+
+            // 텍스트 라벨 배경 및 이름 출력
+            ctx.fillStyle = classId === 1 ? "#ff3b30" : "#00f2fe";
+            const text = `${labels[classId]} ${Math.round(maxScore * 100)}%`;
+            ctx.font = "bold 14px sans-serif";
+            const textWidth = ctx.measureText(text).width;
+            ctx.fillRect(x - 2, y - 24, textWidth + 12, 22);
+
+            ctx.fillStyle = "#0f2027";
+            ctx.fillText(text, x + 4, y - 8);
+        }
+    }
 }
-}
-
-// 신뢰도 임계값 기준 통과 시 탐지 사각형 드로잉
-if (maxScore > 0.45) {
-const cx = data[0 * numBoxes + i] / modelWidth * canvas.width;
-const cy = data[1 * numBoxes + i] / modelHeight * canvas.height;
-const w = data[2 * numBoxes + i] / modelWidth * canvas.width;
-const h = data[3 * numBoxes + i] / modelHeight * canvas.height;
-
-const x = cx - w / 2;
-const y = cy - h / 2;
-
-// 🪸 트로피컬 테마 전용 사각형 스타일 변경 (네온 에메랄드/시안 빛)
-ctx.strokeStyle = "#00f2fe";
-ctx.lineWidth = 4;
-ctx.shadowBlur = 10;
-ctx.shadowColor = "#00f2fe"; // 테두리 네온 글로우 효과 추가
-ctx.strokeRect(x, y, w, h);
-
-// 그림자 효과 초기화 (다음 드로잉 간섭 방지)
-ctx.shadowBlur = 0;
-
-// 텍스트 라벨 배경 생성
-ctx.fillStyle = "#00f2fe";
-const text = `${labels[classId]} ${Math.round(maxScore * 100)}%`;
-ctx.font = "bold 14px sans-serif";
-const textWidth = ctx.measureText(text).width;
-ctx.fillRect(x - 2, y - 24, textWidth + 12, 22);
-
-// 라벨 내부 텍스트 컬러 매칭 (가독성 높은 심해 블랙 톤)
-ctx.fillStyle = "#0f2027";
-ctx.fillText(text, x + 4, y - 8);
-}
-}
-}
-
-window.onload = startApp;
-</script>
-</body>
-</html>
